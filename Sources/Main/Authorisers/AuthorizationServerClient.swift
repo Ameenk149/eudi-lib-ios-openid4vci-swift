@@ -37,9 +37,16 @@ public protocol AuthorizationServerClientType {
   
   func requestAccessTokenAuthFlow(
     authorizationCode: String,
-    codeVerifier: String
+    codeVerifier: String,
+    dpopNonce: String?
   ) async throws -> Result<(IssuanceAccessToken, CNonce?, AuthorizationDetailsIdentifiers?, TokenType?, Int?), ValidationError>
-  
+    
+    func requestAccessTokenAuthOpenFlow(
+      authorizationCode: String,
+      codeVerifier: String,
+      dpopNonce: String?
+    ) async throws -> Result<(IssuanceAccessToken, CNonce?, AuthorizationDetailsIdentifiers?, TokenType?, Int?,  String?), ValidationError>
+    
   func requestAccessTokenPreAuthFlow(
     preAuthorizedCode: String,
     txCode: TxCode?,
@@ -248,10 +255,72 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
       return .failure(error)
     }
   }
-  
+    
+    public func requestAccessTokenAuthOpenFlow(
+      authorizationCode: String,
+      codeVerifier: String,
+      dpopNonce: String?
+    ) async throws -> Result<(
+      IssuanceAccessToken,
+      CNonce?,
+      AuthorizationDetailsIdentifiers?,
+      TokenType?,
+      Int?,
+      String?
+    ), ValidationError> {
+      
+      let parameters: [String: String] = authCodeFlow(
+        authorizationCode: authorizationCode,
+        redirectionURI: redirectionURI,
+        clientId: clientId,
+        codeVerifier: codeVerifier
+      )
+        // Niski
+        
+        let response: AccessTokenRequestResponse = try await service.formPost(
+              poster: tokenPoster,
+              url: tokenEndpoint,
+              headers: try tokenEndPointHeaders(nonce: dpopNonce),
+              parameters: parameters
+            )
+        
+       // Tice
+//        let (response, urlResponse): (AccessTokenRequestResponse, URLResponse) = try await service.formPost<AccessTokenRequestResponse>(
+//        poster: tokenPoster,
+//        url: tokenEndpoint,
+//        headers: try tokenEndPointHeaders(nonce: nonce),
+//        parameters: parameters
+//      )
+        
+       
+        let dpopNonce = ""
+        //let dpopNonce = (urlResponse as? HTTPURLResponse)?.value(forHTTPHeaderField: "dpop-nonce")
+      
+      switch response {
+      case .success(let tokenType, let accessToken, _, let expiresIn, _, let cNonce, _, let identifiers):
+        return .success(
+          (
+            try .init(accessToken: accessToken, tokenType: .init(value: tokenType)),
+            .init(value: cNonce),
+            identifiers,
+            TokenType(value: tokenType),
+            expiresIn,
+            dpopNonce
+          )
+        )
+      case .failure(let error, let errorDescription):
+        throw CredentialIssuanceError.pushedAuthorizationRequestFailed(
+          error: error,
+          errorDescription: errorDescription
+        )
+      }
+    }
+    
+    
   public func requestAccessTokenAuthFlow(
     authorizationCode: String,
-    codeVerifier: String
+    codeVerifier: String,
+    dpopNonce: String? = nil
   ) async throws -> Result<(
     IssuanceAccessToken,
     CNonce?,
@@ -270,7 +339,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
     let response: AccessTokenRequestResponse = try await service.formPost(
       poster: tokenPoster,
       url: tokenEndpoint, 
-      headers: try tokenEndPointHeaders(),
+      headers: try tokenEndPointHeaders(nonce: dpopNonce),
       parameters: parameters
     )
     
@@ -351,9 +420,12 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
 
 private extension AuthorizationServerClient {
   
-  func tokenEndPointHeaders() throws -> [String: String] {
+  func tokenEndPointHeaders(nonce: String? = nil) throws -> [String: String] {
     if let dpopConstructor {
-      return ["DPoP": try dpopConstructor.jwt(endpoint: tokenEndpoint, accessToken: nil)]
+      return ["DPoP": try dpopConstructor.jwt(
+        endpoint: tokenEndpoint,
+        accessToken: nil,
+        nonce: nonce)]
     } else {
       return [:]
     }

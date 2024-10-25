@@ -130,3 +130,69 @@ extension FormPost {
     }()
   }
 }
+
+
+/// A struct representing a form POST request.
+public struct FormPostWithQueryItems: Request {
+ public typealias Response = AuthorizationRequest
+
+ /// The HTTP method for the request.
+ public var method: HTTPMethod { .POST }
+
+ /// Additional headers to include in the request.
+ public var additionalHeaders: [String: String] = [:]
+
+ /// The URL for the request.
+ public var url: URL
+
+ /// The request body as data.
+ public var body: Data? {
+   var formDataComponents = URLComponents()
+   formDataComponents.queryItems = formData.toQueryItems()
+   let formDataString = formDataComponents.query
+   
+   if let formDataString, formDataString.isEmpty {
+     return JSON(formData).rawString()?.data(using: .utf8)
+   } else {
+     return formDataString?.data(using: .utf8)
+   }
+ }
+
+ /// The form data for the request.
+ let formData: [String: Any]
+
+ /// The URL request representation of the DirectPost.
+ var urlRequest: URLRequest {
+   var request = URLRequest(url: url)
+   request.httpMethod = method.rawValue
+   request.httpBody = body
+   
+   // request.allHTTPHeaderFields = additionalHeaders
+   for (key, value) in additionalHeaders {
+     request.addValue(value, forHTTPHeaderField: key)
+   }
+   
+   return request
+ }
+}
+
+public extension Dictionary where Key == String, Value == Any {
+    // Converts the dictionary to an array of URLQueryItem objects
+    func toQueryItems() -> [URLQueryItem] {
+      var queryItems: [URLQueryItem] = []
+      for (key, value) in self {
+        if let stringValue = value as? String {
+          queryItems.append(URLQueryItem(name: key, value: stringValue))
+        } else if let numberValue = value as? NSNumber {
+          queryItems.append(URLQueryItem(name: key, value: numberValue.stringValue))
+        } else if let arrayValue = value as? [Any] {
+          let arrayQueryItems = arrayValue.compactMap { (item) -> URLQueryItem? in
+            guard let stringValue = item as? String else { return nil }
+            return URLQueryItem(name: key, value: stringValue)
+          }
+          queryItems.append(contentsOf: arrayQueryItems)
+        }
+      }
+      return queryItems
+    }
+}

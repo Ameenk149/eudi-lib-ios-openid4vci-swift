@@ -35,6 +35,7 @@ public protocol IssuerType {
   ) async -> Result<UnauthorizedRequest, Error>
   
   func requestAccessToken(
+    dpopNonce: String?,
     authorizationCode: UnauthorizedRequest
   ) async -> Result<AuthorizedRequest, Error>
   
@@ -275,7 +276,7 @@ public actor Issuer: IssuerType {
     }
   }
   
-  public func requestAccessToken(authorizationCode: UnauthorizedRequest) async -> Result<AuthorizedRequest, Error> {
+    public func requestAccessToken(dpopNonce: String? = nil, authorizationCode: UnauthorizedRequest) async -> Result<AuthorizedRequest, Error> {
     switch authorizationCode {
     case .par:
       return .failure(ValidationError.error(reason: ".authorizationCode case is required"))
@@ -289,13 +290,16 @@ public actor Issuer: IssuerType {
             nonce: CNonce?,
             identifiers: AuthorizationDetailsIdentifiers?,
             tokenType: TokenType?,
-            expiresIn: Int?
-          ) = try await authorizer.requestAccessTokenAuthFlow(
+            expiresIn: Int?,
+            test: String?
+          ) = try await authorizer.requestAccessTokenAuthOpenFlow(
             authorizationCode: authorizationCode,
-            codeVerifier: request.pkceVerifier.codeVerifier
+            codeVerifier: request.pkceVerifier.codeVerifier,
+            dpopNonce: dpopNonce
           ).get()
           
           if let cNonce = response.nonce {
+              print("Returning ------> \(response)")
             return .success(
               .proofRequired(
                 accessToken: try IssuanceAccessToken(
@@ -326,7 +330,10 @@ public actor Issuer: IssuerType {
         } catch {
           return .failure(ValidationError.error(reason: error.localizedDescription))
         }
-      default: return .failure(ValidationError.error(reason: ".authorizationCode case is required"))
+          
+      default:
+          print("Returning Fail ------> nil")
+          return .failure(ValidationError.error(reason: ".authorizationCode case is required"))
       }
     }
   }

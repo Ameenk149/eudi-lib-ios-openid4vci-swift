@@ -56,6 +56,7 @@ public protocol PostingType {
    - Returns: A Result type with the response data or an error.
    */
   func post<Response: Codable>(request: URLRequest) async -> Result<Response, PostError>
+  func postWithSession<Response: Codable>(request: URLRequest) async -> Result<Response, PostError>
   
   /**
    Performs a POST request with the provided URLRequest.
@@ -119,6 +120,23 @@ public struct Poster: PostingType {
       return .failure(.networkError(error))
     }
   }
+
+ public func postWithSession<Response: Codable>(request: URLRequest) async -> Result<Response, PostError> {
+    do {
+        let (data, _) = try await self.session.data(for: request)
+        let object = try JSONDecoder().decode(Response.self, from: data)
+
+        return .success(object)
+    } catch let error as NSError {
+        if error.domain == NSURLErrorDomain {
+        return .failure(.networkError(error))
+        } else {
+        return .failure(.networkError(error))
+        }
+    } catch {
+        return .failure(.networkError(error))
+    }
+}
   
   /**
    Performs a POST request with the provided URLRequest.

@@ -18,7 +18,8 @@ import JOSESwift
 import CryptoKit
 
 public protocol DPoPConstructorType {
-  func jwt(endpoint: URL, accessToken: String?) throws -> String
+    func jwt(endpoint: URL, accessToken: String?) throws -> String
+    func jwt(endpoint: URL, accessToken: String?, nonce: String?) throws -> String
 }
 
 public class DPoPConstructor: DPoPConstructorType {
@@ -44,7 +45,7 @@ public class DPoPConstructor: DPoPConstructorType {
     self.privateKey = privateKey
   }
 
-  public func jwt(endpoint: URL, accessToken: String?) throws -> String {
+    public func jwt(endpoint: URL, accessToken: String?, nonce: String? = nil) throws -> String {
 
     let header = try JWSHeader(parameters: [
       "typ": "dpop+jwt",
@@ -64,7 +65,55 @@ public class DPoPConstructor: DPoPConstructorType {
       let hash = Data(hashed).base64URLEncodedString()
       dictionary["ath"] = hash
     }
+    
+    if let nonce {
+        dictionary["nonce"] = nonce
+    }
+        
+    let payload = Payload(try dictionary.toThrowingJSONData())
 
+    guard let signatureAlgorithm = SignatureAlgorithm(rawValue: algorithm.name) else {
+      throw CredentialIssuanceError.cryptographicAlgorithmNotSupported
+    }
+
+    guard let signer = Signer(
+      signatureAlgorithm: signatureAlgorithm,
+      key: privateKey
+    ) else {
+      throw ValidationError.error(reason: "Unable to create JWS signer")
+    }
+
+    let jws = try JWS(
+      header: header,
+      payload: payload,
+      signer: signer
+    )
+
+    return jws.compactSerializedString
+  }
+    
+    public func jwt(endpoint: URL, accessToken: String?) throws -> String {
+
+    let header = try JWSHeader(parameters: [
+      "typ": "dpop+jwt",
+      "alg": algorithm.name,
+      "jwk": jwk.toDictionary()
+    ])
+
+    var dictionary: [String: Any] = [
+      JWTClaimNames.issuedAt: Int(Date().timeIntervalSince1970.rounded()),
+      JWTClaimNames.htm: Methods.post.rawValue,
+      JWTClaimNames.htu: endpoint.absoluteString,
+      JWTClaimNames.jwtId: String.randomBase64URLString(length: 20)
+    ]
+
+    if let data = accessToken?.data(using: .utf8) {
+      let hashed = SHA256.hash(data: data)
+      let hash = Data(hashed).base64URLEncodedString()
+      dictionary["ath"] = hash
+    }
+    
+        
     let payload = Payload(try dictionary.toThrowingJSONData())
 
     guard let signatureAlgorithm = SignatureAlgorithm(rawValue: algorithm.name) else {

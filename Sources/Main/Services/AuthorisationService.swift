@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 import Foundation
+import SiopOpenID4VP
+
 
 /// A protocol for an authorization service.
 public protocol AuthorisationServiceType {
@@ -37,7 +39,54 @@ public protocol AuthorisationServiceType {
     headers: [String: String],
     body: [String: Any]
   ) async throws -> U
+    
 }
+//
+//extension AuthorisationService {
+////    public func formPost<U: Codable>(
+////      poster: PostingType,
+////      url: URL,
+////      headers: [String: String],
+////      body: [String: Any]
+////    ) async throws -> (U, URLResponse) {
+////      let headers = [
+////        ContentType.form.rawValue: ContentType.json.rawValue
+////      ].merging(headers, uniquingKeysWith: { _, new in
+////        new
+////      })
+////      
+////      let post = FormPostWithQueryItems(
+////        additionalHeaders: headers,
+////        url: url,
+////        formData: body
+////      )
+////      
+////      let result: Result<(U, URLResponse), PostError> = await poster.postWithSession(request: post.urlRequest)
+////      return try result.get()
+////    }
+//    
+//    /// Posts a response and returns a generic result.
+//    public func formPost<T: Codable>(
+//      poster: PostingType = Poster(),
+//      response: AuthorizationResponse
+//    ) async throws -> T {
+//      switch response {
+//      case .directPost(let url, let data):
+//        let post = VerifierFormPost(
+//          additionalHeaders: ["Content-Type": ContentType.form.rawValue],
+//          url: url,
+//          formData: try data.toDictionary()
+//        )
+//
+//        let result: Result<T, PostError> = await poster.post(
+//          request: post.urlRequest
+//        )
+//        return try result.get()
+//      default: throw AuthorizationError.invalidResponseMode
+//      }
+//    }
+//    
+//}
 
 /// An implementation of the `AuthorisationServiceType` protocol.
 public actor AuthorisationService: AuthorisationServiceType {
