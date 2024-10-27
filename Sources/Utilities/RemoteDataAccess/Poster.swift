@@ -16,6 +16,7 @@
 import Foundation
 
 public enum PostError: LocalizedError {
+  case useDpopNonce(String)
   case invalidUrl
   case networkError(Error)
   case response(GenericErrorResponse)
@@ -29,6 +30,8 @@ public enum PostError: LocalizedError {
    */
   public var errorDescription: String? {
     switch self {
+    case .useDpopNonce(let nonce):
+      return "DPoP nonce is invalid"
     case .invalidUrl:
       return "Invalid URL"
     case .networkError(let error):
@@ -94,8 +97,15 @@ public struct Poster: PostingType {
     do {
       let (data, response) = try await self.session.data(for: request)
       let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-      
+        print(response)
+        let allHeaderFields = (response as? HTTPURLResponse)?.allHeaderFields
+        print(allHeaderFields)
+        
       if statusCode >= 400 && statusCode < 500 {
+          if let dpopNonce = allHeaderFields?.first { $0.key as? String == "dpop-nonce" }?.value as? String,
+          !dpopNonce.isEmpty {
+              return .failure(.useDpopNonce(dpopNonce))
+          }
         let object = try JSONDecoder().decode(GenericErrorResponse.self, from: data)
         return .failure(.response(object))
       } else if statusCode >= 500 && statusCode < 599 {
@@ -115,8 +125,10 @@ public struct Poster: PostingType {
       }
       
     } catch let error as NSError {
+        print(error)
       return .failure(.networkError(error))
     } catch {
+        print(error)
       return .failure(.networkError(error))
     }
   }

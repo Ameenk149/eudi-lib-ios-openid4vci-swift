@@ -47,8 +47,28 @@ public enum AuthorizedRequest {
     refreshToken: IssuanceRefreshToken?,
     cNonce: CNonce,
     credentialIdentifiers: AuthorizationDetailsIdentifiers?,
-    timeStamp: TimeInterval
+    timeStamp: TimeInterval,
+    dpopNonce: DPopNonce? = nil
   )
+    
+  public mutating func updateCNonce(_ newNonce: CNonce) {
+      if case let .proofRequired(accessToken,refreshToken,cNonce,credentialIdentifiers,timeStamp, dpopNonce) = self {
+          let accessToken = accessToken
+          let refreshToken = refreshToken
+          let cNonce = newNonce
+          let credentialIdentifiers = credentialIdentifiers
+          let timeStamp = timeStamp
+          let dpopNonce = dpopNonce
+          self = .proofRequired(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            cNonce: newNonce,
+            credentialIdentifiers: credentialIdentifiers,
+            timeStamp: timeStamp,
+            dpopNonce: dpopNonce
+          )
+      }
+  }
     
   public func isAccessTokenExpired(clock: TimeInterval) -> Bool {
     guard let timeStamp = self.timeStamp else {
@@ -71,7 +91,7 @@ public enum AuthorizedRequest {
     switch self {
     case .noProofRequired(_, _, _, let timeStamp):
       return timeStamp
-    case .proofRequired(_, _, _, _, let timeStamp):
+    case .proofRequired(_, _, _, _, let timeStamp, let nonce):
       return timeStamp
     }
   }
@@ -89,8 +109,17 @@ public enum AuthorizedRequest {
     switch self {
     case .noProofRequired:
       return nil
-    case .proofRequired(let accessToken, _, _, _, _):
+    case .proofRequired(let accessToken, _, _, _, _, _):
       return accessToken
+    }
+  }
+    
+  public var dpopNonce: DPopNonce? {
+    switch self {
+    case .noProofRequired:
+        return nil
+    case .proofRequired(_, _, _, _, _, let nonce):
+        return nonce
     }
   }
 }
@@ -100,7 +129,7 @@ public extension AuthorizedRequest {
     switch self {
     case .noProofRequired(let accessToken, _, _, _):
       return accessToken
-    case .proofRequired(let accessToken, _, _, _, _):
+    case .proofRequired(let accessToken, _, _, _, _, _):
       return accessToken
     }
   }

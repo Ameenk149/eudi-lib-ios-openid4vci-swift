@@ -23,28 +23,31 @@ public protocol IssuanceRequesterType {
   
   func placeIssuanceRequest(
     accessToken: IssuanceAccessToken,
-    request: SingleCredential
+    request: SingleCredential,
+    dpopNonce: DPopNonce?
   ) async throws -> Result<CredentialIssuanceResponse, Error>
   
   func placeBatchIssuanceRequest(
     accessToken: IssuanceAccessToken,
-    request: [SingleCredential]
+    request: [SingleCredential],
+    dpopNonce: DPopNonce?
   ) async throws -> Result<CredentialIssuanceResponse, Error>
   
   func placeDeferredCredentialRequest(
     accessToken: IssuanceAccessToken,
     transactionId: TransactionId,
-    issuanceResponseEncryptionSpec: IssuanceResponseEncryptionSpec?
+    issuanceResponseEncryptionSpec: IssuanceResponseEncryptionSpec?,
+    dpopNonce: DPopNonce?
   ) async throws -> Result<DeferredCredentialIssuanceResponse, Error>
   
   func notifyIssuer(
     accessToken: IssuanceAccessToken?,
-    notification: NotificationObject
+    notification: NotificationObject,
+    dpopNonce: DPopNonce?
   ) async throws -> Result<Void, Error>
 }
 
 public actor IssuanceRequester: IssuanceRequesterType {
-  
   public let issuerMetadata: CredentialIssuerMetadata
   public let service: AuthorisationServiceType
   public let poster: PostingType
@@ -64,18 +67,18 @@ public actor IssuanceRequester: IssuanceRequesterType {
   
   public func placeIssuanceRequest(
     accessToken: IssuanceAccessToken,
-    request: SingleCredential
+    request: SingleCredential,
+    dpopNonce: DPopNonce?
   ) async throws -> Result<CredentialIssuanceResponse, Error> {
     let endpoint = issuerMetadata.credentialEndpoint.url
     
     do {
       let authorizationHeader: [String: String] = try accessToken.dPoPOrBearerAuthorizationHeader(
         dpopConstructor: dpopConstructor,
-        endpoint: endpoint
+        endpoint: endpoint,
+        dpopNonce: dpopNonce
       )
-      
       let encodedRequest: [String: Any] = try request.toDictionary().dictionaryValue
-      
       let response: SingleIssuanceSuccessResponse = try await service.formPost(
         poster: poster,
         url: endpoint,
@@ -176,6 +179,8 @@ public actor IssuanceRequester: IssuanceRequesterType {
         }
       }
       
+    } catch PostError.useDpopNonce(let string) {
+        return .failure(PostError.useDpopNonce(string))
     } catch {
       return .failure(ValidationError.error(reason: error.localizedDescription))
     }
@@ -183,7 +188,8 @@ public actor IssuanceRequester: IssuanceRequesterType {
   
   public func placeBatchIssuanceRequest(
     accessToken: IssuanceAccessToken,
-    request: [SingleCredential]
+    request: [SingleCredential],
+    dpopNonce: DPopNonce?
   ) async throws -> Result<CredentialIssuanceResponse, Error> {
     guard
       let endpoint = issuerMetadata.batchCredentialEndpoint?.url
@@ -194,7 +200,8 @@ public actor IssuanceRequester: IssuanceRequesterType {
     do {
       let authorizationHeader: [String: Any] = try accessToken.dPoPOrBearerAuthorizationHeader(
         dpopConstructor: dpopConstructor,
-        endpoint: endpoint
+        endpoint: endpoint,
+        dpopNonce: dpopNonce
       )
       
       let encodedRequest: [JSON] = try request
@@ -218,7 +225,8 @@ public actor IssuanceRequester: IssuanceRequesterType {
   public func placeDeferredCredentialRequest(
     accessToken: IssuanceAccessToken,
     transactionId: TransactionId,
-    issuanceResponseEncryptionSpec: IssuanceResponseEncryptionSpec?
+    issuanceResponseEncryptionSpec: IssuanceResponseEncryptionSpec?,
+    dpopNonce: DPopNonce?
   ) async throws -> Result<DeferredCredentialIssuanceResponse, Error> {
     guard let deferredCredentialEndpoint = issuerMetadata.deferredCredentialEndpoint else {
       throw CredentialError.issuerDoesNotSupportDeferredIssuance
@@ -226,7 +234,8 @@ public actor IssuanceRequester: IssuanceRequesterType {
     
     let authorizationHeader: [String: String] = try accessToken.dPoPOrBearerAuthorizationHeader(
       dpopConstructor: dpopConstructor,
-      endpoint: deferredCredentialEndpoint.url
+      endpoint: deferredCredentialEndpoint.url,
+      dpopNonce: dpopNonce
     )
     
     let encodedRequest: [String: Any] = try JSON(transactionId.toDeferredRequestTO().toDictionary()).dictionaryValue
@@ -285,7 +294,8 @@ public actor IssuanceRequester: IssuanceRequesterType {
   
   public func notifyIssuer(
     accessToken: IssuanceAccessToken?,
-    notification: NotificationObject
+    notification: NotificationObject,
+    dpopNonce: DPopNonce?
   ) async throws -> Result<Void, Error> {
     do {
       
@@ -300,7 +310,8 @@ public actor IssuanceRequester: IssuanceRequesterType {
       let endpoint = notificationEndpoint.url
       let authorizationHeader: [String: String] = try accessToken.dPoPOrBearerAuthorizationHeader(
         dpopConstructor: dpopConstructor,
-        endpoint: endpoint
+        endpoint: endpoint,
+        dpopNonce: dpopNonce
       )
       
       let payload = NotificationObject(
@@ -357,7 +368,7 @@ private extension SingleIssuanceSuccessResponse {
   func toSingleIssuanceResponse() throws -> CredentialIssuanceResponse {
     if let credential = credential {
       return CredentialIssuanceResponse(
-        credentialResponses: [.issued(credential: credential, notificationId: nil)],
+        credentialResponses: [.issued(format: format ?? "", credential: credential, notificationId: nil)],
         cNonce: CNonce(value: cNonce, expiresInSeconds: cNonceExpiresInSeconds)
       )
     } else if let transactionId = transactionId {
@@ -378,7 +389,7 @@ private extension BatchIssuanceSuccessResponse {
         if let transactionId = response.transactionId {
           return .deferred(transactionId: try .init(value: transactionId))
         } else if let credential = response.credential {
-          return .issued(credential: credential, notificationId: nil)
+            return CredentialIssuanceResponse.Result.issued(format: nil, credential: credential, notificationId: nil)
         } else {
           throw CredentialIssuanceError.responseUnparsable("Got success response for issuance but response misses 'transaction_id' and 'certificate' parameters")
         }

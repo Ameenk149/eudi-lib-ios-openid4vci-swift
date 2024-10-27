@@ -66,10 +66,11 @@ public class DPoPConstructor: DPoPConstructorType {
       dictionary["ath"] = hash
     }
     
-    if let nonce {
+    if let nonce, !nonce.isEmpty {
         dictionary["nonce"] = nonce
     }
-        
+        print("-------------------Header Dictionary------------------>")
+        print(dictionary)
     let payload = Payload(try dictionary.toThrowingJSONData())
 
     guard let signatureAlgorithm = SignatureAlgorithm(rawValue: algorithm.name) else {
