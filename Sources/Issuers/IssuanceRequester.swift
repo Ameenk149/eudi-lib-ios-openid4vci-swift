@@ -79,6 +79,9 @@ public actor IssuanceRequester: IssuanceRequesterType {
         dpopNonce: dpopNonce
       )
       let encodedRequest: [String: Any] = try request.toDictionary().dictionaryValue
+        
+        print(request)
+        
       let response: SingleIssuanceSuccessResponse = try await service.formPost(
         poster: poster,
         url: endpoint,

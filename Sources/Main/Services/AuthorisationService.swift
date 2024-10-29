@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import Foundation
-import SiopOpenID4VP
+
 
 
 /// A protocol for an authorization service.
@@ -39,6 +39,13 @@ public protocol AuthorisationServiceType {
     headers: [String: String],
     body: [String: Any]
   ) async throws -> U
+    
+    func formPost<U: Codable>(
+      poster: PostingType,
+      url: URL,
+      headers: [String: String],
+      parameters: [String: String]
+    ) async throws -> (U, URLResponse)
     
 }
 //
@@ -90,6 +97,9 @@ public protocol AuthorisationServiceType {
 
 /// An implementation of the `AuthorisationServiceType` protocol.
 public actor AuthorisationService: AuthorisationServiceType {
+  
+    
+
   
   public init() { }
   
@@ -144,8 +154,30 @@ public actor AuthorisationService: AuthorisationServiceType {
       additionalHeaders: headers,
       formData: body
     )
-    
+      print(post)
     let result: Result<U, PostError> = await poster.post(request: post.urlRequest)
     return try result.get()
   }
+    
+    public func formPost<U: Codable>(
+      poster: PostingType,
+      url: URL,
+      headers: [String: String] = [:],
+      parameters: [String: String]
+    ) async throws -> (U, URLResponse) {
+      let post = FormPostWithQueryItems(
+        additionalHeaders: [
+          ContentType.key: ContentType.form.rawValue
+        ].merging(headers, uniquingKeysWith: { _, new in
+          new
+        }),
+        url: url,
+        formData: parameters
+      )
+      
+      let result: Result<(U, URLResponse), PostError> = await poster.postWithSession(request: post.urlRequest)
+      return try result.get()
+    }
+    
+    
 }

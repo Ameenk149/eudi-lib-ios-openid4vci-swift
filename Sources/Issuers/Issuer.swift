@@ -294,7 +294,7 @@ public actor Issuer: IssuerType {
             identifiers: AuthorizationDetailsIdentifiers?,
             tokenType: TokenType?,
             expiresIn: Int?,
-            test: String?
+            dpopNonce: String?
           ) = try await authorizer.requestAccessTokenAuthOpenFlow(
             authorizationCode: authorizationCode,
             codeVerifier: request.pkceVerifier.codeVerifier,
@@ -314,7 +314,7 @@ public actor Issuer: IssuerType {
                 cNonce: cNonce,
                 credentialIdentifiers: response.identifiers,
                 timeStamp: Date().timeIntervalSinceReferenceDate,
-                dpopNonce: dpopNonce
+                dpopNonce: response.dpopNonce
               )
             )
           } else {

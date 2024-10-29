@@ -59,7 +59,7 @@ public protocol PostingType {
    - Returns: A Result type with the response data or an error.
    */
   func post<Response: Codable>(request: URLRequest) async -> Result<Response, PostError>
-  func postWithSession<Response: Codable>(request: URLRequest) async -> Result<Response, PostError>
+  func postWithSession<Response: Codable>(request: URLRequest) async ->Result<(Response, URLResponse), PostError>
   
   /**
    Performs a POST request with the provided URLRequest.
@@ -97,7 +97,7 @@ public struct Poster: PostingType {
     do {
       let (data, response) = try await self.session.data(for: request)
       let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-        print(response)
+        print("Response --> :\(response)")
         let allHeaderFields = (response as? HTTPURLResponse)?.allHeaderFields
         print(allHeaderFields)
         
@@ -133,22 +133,36 @@ public struct Poster: PostingType {
     }
   }
 
- public func postWithSession<Response: Codable>(request: URLRequest) async -> Result<Response, PostError> {
-    do {
-        let (data, _) = try await self.session.data(for: request)
-        let object = try JSONDecoder().decode(Response.self, from: data)
-
-        return .success(object)
-    } catch let error as NSError {
-        if error.domain == NSURLErrorDomain {
-        return .failure(.networkError(error))
-        } else {
-        return .failure(.networkError(error))
+    public func postWithSession<Response: Codable>(request: URLRequest) async -> Result<(Response, URLResponse), PostError> {
+      do {
+        let (data, response) = try await self.session.data(for: request)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        
+        if statusCode >= 400 && statusCode < 500 {
+          let object = try JSONDecoder().decode(GenericErrorResponse.self, from: data)
+          return .failure(.response(object))
+        } else if statusCode >= 500 && statusCode < 599 {
+          return .failure(.serverError)
         }
-    } catch {
+        
+        do {
+          let object = try JSONDecoder().decode(Response.self, from: data)
+          return .success((object, response))
+          
+        } catch {
+          if statusCode == 200, let string = String(data: data, encoding: .utf8) {
+            return .failure(.cannotParse(string))
+          } else {
+            return .failure(.networkError(error))
+          }
+        }
+        
+      } catch let error as NSError {
         return .failure(.networkError(error))
+      } catch {
+        return .failure(.networkError(error))
+      }
     }
-}
   
   /**
    Performs a POST request with the provided URLRequest.

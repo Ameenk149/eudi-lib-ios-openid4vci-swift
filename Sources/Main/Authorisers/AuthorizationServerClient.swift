@@ -277,25 +277,24 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
       )
         // Niski
         
-        let response: AccessTokenRequestResponse = try await service.formPost(
-              poster: tokenPoster,
-              url: tokenEndpoint,
-              headers: try tokenEndPointHeaders(nonce: dpopNonce),
-              parameters: parameters
-            )
-        
-       // Tice
-//        let (response, urlResponse): (AccessTokenRequestResponse, URLResponse) = try await service.formPost<AccessTokenRequestResponse>(
-//        poster: tokenPoster,
-//        url: tokenEndpoint,
-//        headers: try tokenEndPointHeaders(nonce: nonce),
-//        parameters: parameters
-//      )
+//        let response: AccessTokenRequestResponse = try await service.formPost(
+//              poster: tokenPoster,
+//              url: tokenEndpoint,
+//              headers: try tokenEndPointHeaders(nonce: dpopNonce),
+//              parameters: parameters
+//            )
+//        
+        let (response, urlResponse): (AccessTokenRequestResponse, URLResponse) = try await service.formPost<AccessTokenRequestResponse>(
+        poster: tokenPoster,
+        url: tokenEndpoint,
+        headers: try tokenEndPointHeaders(nonce: dpopNonce),
+        parameters: parameters
+      )
         
        
-        let dpopNonce = ""
-        //let dpopNonce = (urlResponse as? HTTPURLResponse)?.value(forHTTPHeaderField: "dpop-nonce")
-      
+    let newDpopNonce = (urlResponse as? HTTPURLResponse)?.value(forHTTPHeaderField: "dpop-nonce")
+       
+        
       switch response {
       case .success(let tokenType, let accessToken, _, let expiresIn, _, let cNonce, _, let identifiers):
         return .success(
@@ -305,7 +304,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
             identifiers,
             TokenType(value: tokenType),
             expiresIn,
-            dpopNonce
+            newDpopNonce // We need the new dpopNonce from the response
           )
         )
       case .failure(let error, let errorDescription):

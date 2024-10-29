@@ -68,10 +68,9 @@ public extension IssuanceAccessToken {
     if tokenType == TokenType.bearer {
       return ["Authorization": "\(TokenType.bearer.rawValue) \(accessToken)"]
     } else if let dpopConstructor, tokenType == TokenType.dpop, let endpoint {
-        let nonce = String(dpopNonce ?? "")
       return [
         "Authorization": "\(TokenType.dpop.rawValue) \(accessToken)",
-        TokenType.dpop.rawValue: try dpopConstructor.jwt(endpoint: endpoint, accessToken: accessToken, nonce: nonce)
+        TokenType.dpop.rawValue: try dpopConstructor.jwt(endpoint: endpoint, accessToken: accessToken, nonce: dpopNonce)
       ]
     }
     return ["Authorization": "\(TokenType.bearer.rawValue) \(accessToken)"]
