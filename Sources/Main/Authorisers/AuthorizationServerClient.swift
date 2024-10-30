@@ -45,7 +45,7 @@ public protocol AuthorizationServerClientType {
       authorizationCode: String,
       codeVerifier: String,
       dpopNonce: String?
-    ) async throws -> Result<(IssuanceAccessToken, CNonce?, AuthorizationDetailsIdentifiers?, TokenType?, Int?,  String?), ValidationError>
+    ) async throws -> Result<(IssuanceAccessToken, IssuanceRefreshToken, CNonce?, AuthorizationDetailsIdentifiers?, TokenType?, Int?,  String?), ValidationError>
     
   func requestAccessTokenPreAuthFlow(
     preAuthorizedCode: String,
@@ -262,6 +262,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
       dpopNonce: String?
     ) async throws -> Result<(
       IssuanceAccessToken,
+      IssuanceRefreshToken,
       CNonce?,
       AuthorizationDetailsIdentifiers?,
       TokenType?,
@@ -296,10 +297,11 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
        
         
       switch response {
-      case .success(let tokenType, let accessToken, _, let expiresIn, _, let cNonce, _, let identifiers):
+      case .success(let tokenType, let accessToken, let refreshToken, let expiresIn, _, let cNonce, _, let identifiers):
         return .success(
           (
             try .init(accessToken: accessToken, tokenType: .init(value: tokenType)),
+            try IssuanceRefreshToken(refreshToken: refreshToken),
             .init(value: cNonce),
             identifiers,
             TokenType(value: tokenType),

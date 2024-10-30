@@ -290,6 +290,7 @@ public actor Issuer: IssuerType {
         do {
           let response: (
             accessToken: IssuanceAccessToken,
+            refreshToken: IssuanceRefreshToken,
             nonce: CNonce?,
             identifiers: AuthorizationDetailsIdentifiers?,
             tokenType: TokenType?,
@@ -310,7 +311,10 @@ public actor Issuer: IssuerType {
                   tokenType: response.tokenType,
                   expiresIn: TimeInterval(response.expiresIn ?? .zero)
                 ),
-                refreshToken: nil,
+                refreshToken: try IssuanceRefreshToken(
+                    refreshToken: response.refreshToken.refreshToken,
+                    expiresIn: TimeInterval(response.refreshToken.expiresIn ?? .zero)
+                ),
                 cNonce: cNonce,
                 credentialIdentifiers: response.identifiers,
                 timeStamp: Date().timeIntervalSinceReferenceDate,
