@@ -91,7 +91,7 @@ public actor Issuer: IssuerType {
   private let issuanceRequester: IssuanceRequesterType
   private let deferredIssuanceRequester: IssuanceRequesterType
   private let notifyIssuer: NotifyIssuerType
-  
+    
   public init(
     authorizationServerMetadata: IdentityAndAccessManagementMetadata,
     issuerMetadata: CredentialIssuerMetadata,
@@ -101,7 +101,8 @@ public actor Issuer: IssuerType {
     requesterPoster: PostingType = Poster(),
     deferredRequesterPoster: PostingType = Poster(),
     notificationPoster: PostingType = Poster(),
-    dpopConstructor: DPoPConstructorType? = nil
+    dpopConstructor: DPoPConstructorType? = nil,
+    clientAttestationPoPJWTSpec: ClientAttestationPoPJWTSpec? = nil
   ) throws {
     self.authorizationServerMetadata = authorizationServerMetadata
     self.issuerMetadata = issuerMetadata
@@ -113,7 +114,8 @@ public actor Issuer: IssuerType {
       config: config,
       authorizationServerMetadata: authorizationServerMetadata,
       credentialIssuerIdentifier: issuerMetadata.credentialIssuerIdentifier,
-      dpopConstructor: dpopConstructor
+      dpopConstructor: dpopConstructor,
+      clientAttestationPoPJWTSpec: clientAttestationPoPJWTSpec
     )
     
     issuanceRequester = IssuanceRequester(
@@ -147,7 +149,7 @@ public actor Issuer: IssuerType {
     let (scopes, credentialConfogurationIdentifiers) = try scopesAndCredentialConfigurationIds(credentialOffer: credentialOffer)
 
     let authorizationServerSupportsPar = credentialOffer.authorizationServerMetadata.authorizationServerSupportsPar && config.usePAR
-
+      
     let state = StateValue().value
 
     if authorizationServerSupportsPar {

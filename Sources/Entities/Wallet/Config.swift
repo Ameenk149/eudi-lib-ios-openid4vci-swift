@@ -23,22 +23,62 @@ public enum AuthorizeIssuanceConfig {
 public typealias ClientId = String
 public typealias ClientSecret = String
 
+public protocol Client: Codable {
+    /// The client_id of the Wallet, issued when interacting with a credential issuer.
+    var id: String { get }
+}
+
 public struct OpenId4VCIConfig {
-  public let clientId: ClientId
+  public let client: Client
   public let authFlowRedirectionURI: URL
   public let authorizeIssuanceConfig: AuthorizeIssuanceConfig
   public let usePAR: Bool
-    
+  public let attestationJWT: AttestedClient?
+
   public init(
-    clientId: ClientId,
+    client: Client,
     authFlowRedirectionURI: URL,
     authorizeIssuanceConfig: AuthorizeIssuanceConfig = .favorScopes,
     usePAR: Bool = true
   ) {
-    self.clientId = clientId
+    self.client = client
     self.authFlowRedirectionURI = authFlowRedirectionURI
     self.authorizeIssuanceConfig = authorizeIssuanceConfig
     self.usePAR = usePAR
+    self.attestationJWT = nil
   }
+    
+    public init(
+        client: Client,
+        attestationJWT: AttestedClient,
+        authFlowRedirectionURI: URL,
+        authorizeIssuanceConfig: AuthorizeIssuanceConfig = .favorScopes,
+        usePAR: Bool = true
+    ) {
+        self.client = client
+        self.attestationJWT = attestationJWT
+        self.authFlowRedirectionURI = authFlowRedirectionURI
+        self.authorizeIssuanceConfig = authorizeIssuanceConfig
+        self.usePAR = usePAR
+    }
 }
 
+public class AttestedClient {
+    let attestationJWT: ClientAttestationJWT
+    let popJwtSpec: ClientAttestationPoPJWTSpec
+    let id: String
+    
+    init(
+        attestationJWT: ClientAttestationJWT,
+        popJwtSpec: ClientAttestationPoPJWTSpec
+    ) {
+        let clientId = attestationJWT.clientId
+        guard !clientId.trimmingCharacters(in: .whitespaces).isEmpty else {
+            fatalError("Client ID must not be blank or empty")
+        }
+
+        self.attestationJWT = attestationJWT
+        self.popJwtSpec = popJwtSpec
+        self.id = clientId
+    }
+}

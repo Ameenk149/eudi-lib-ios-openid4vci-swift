@@ -69,7 +69,8 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
   public let authorizationServerMetadata: IdentityAndAccessManagementMetadata
   public let credentialIssuerIdentifier: CredentialIssuerId
   public let dpopConstructor: DPoPConstructorType?
-  
+  private let clientAttestationPoPJWTSpec: ClientAttestationPoPJWTSpec?
+    
   static let responseType = "code"
   static let grantAuthorizationCode = "authorization_code"
   static let grantPreauthorizationCode = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
@@ -81,7 +82,8 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
     config: OpenId4VCIConfig,
     authorizationServerMetadata: IdentityAndAccessManagementMetadata,
     credentialIssuerIdentifier: CredentialIssuerId,
-    dpopConstructor: DPoPConstructorType? = nil
+    dpopConstructor: DPoPConstructorType? = nil,
+    clientAttestationPoPJWTSpec: ClientAttestationPoPJWTSpec?
   ) throws {
     self.service = service
     self.parPoster = parPoster
@@ -92,9 +94,10 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
     self.credentialIssuerIdentifier = credentialIssuerIdentifier
     
     self.redirectionURI = config.authFlowRedirectionURI
-    self.clientId = ClientId(config.clientId)
+      self.clientId = ClientId(config.client.id)
     
     self.dpopConstructor = dpopConstructor
+    self.clientAttestationPoPJWTSpec = clientAttestationPoPJWTSpec
     
     switch authorizationServerMetadata {
     case .oidc(let data):
@@ -149,6 +152,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
       throw ValidationError.error(reason: "No scopes provided. Cannot submit par with no scopes.")
     }
     
+    let clientID = ClientId(config.client.id)
     let codeVerifier = PKCEGenerator.codeVerifier() ?? ""
     let verifier = try PKCEVerifier(
       codeVerifier: codeVerifier,
@@ -157,7 +161,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
     
     let authzRequest = AuthorizationRequest(
       responseType: Self.responseType,
-      clientId: config.clientId,
+      clientId: config.client.id,
       redirectUri: config.authFlowRedirectionURI.absoluteString,
       scope: scopes.map { $0.value }.joined(separator: " ").appending(" ").appending(Constants.OPENID_SCOPE),
       credentialConfigurationIds: toAuthorizationDetail(credentialConfigurationIds: credentialConfigurationIdentifiers),
@@ -200,7 +204,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
     let codeVerifier = PKCEGenerator.codeVerifier() ?? ""
     let authzRequest = AuthorizationRequest(
       responseType: Self.responseType,
-      clientId: config.clientId,
+      clientId: config.client.id,
       redirectUri: config.authFlowRedirectionURI.absoluteString,
       scope: scopes.map { $0.value }.joined(separator: " "),
       credentialConfigurationIds: toAuthorizationDetail(credentialConfigurationIds: credentialConfigurationIdentifiers),
@@ -215,6 +219,17 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
       guard let parEndpoint = parEndpoint else {
         throw ValidationError.error(reason: "Missing PAR endpoint")
       }
+        switch authorizationServerMetadata {
+        case .oidc(let data):
+            if let tokenEndpointAuthMethodsSupported = data.tokenEndpointAuthMethodsSupported,
+               tokenEndpointAuthMethodsSupported.contains(where: { $0 == "attest_jwt_client_auth" }) {
+                
+            }
+        case .oauth(_):
+            break
+        }
+        
+      var clientID = ClientId(config.client.id)
       let response: PushedAuthorizationRequestResponse = try await service.formPost(
         poster: parPoster,
         url: parEndpoint,
@@ -230,7 +245,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
         )
         
         let queryParams = [
-          GetAuthorizationCodeURL.PARAM_CLIENT_ID: config.clientId,
+          GetAuthorizationCodeURL.PARAM_CLIENT_ID: config.client.id,
           GetAuthorizationCodeURL.PARAM_REQUEST_STATE: state,
           GetAuthorizationCodeURL.PARAM_REQUEST_URI: requestURI
         ]
@@ -276,26 +291,15 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
         clientId: clientId,
         codeVerifier: codeVerifier
       )
-        // Niski
-        
-//        let response: AccessTokenRequestResponse = try await service.formPost(
-//              poster: tokenPoster,
-//              url: tokenEndpoint,
-//              headers: try tokenEndPointHeaders(nonce: dpopNonce),
-//              parameters: parameters
-//            )
-//        
         let (response, urlResponse): (AccessTokenRequestResponse, URLResponse) = try await service.formPost<AccessTokenRequestResponse>(
         poster: tokenPoster,
         url: tokenEndpoint,
         headers: try tokenEndPointHeaders(nonce: dpopNonce),
         parameters: parameters
       )
-        
        
     let newDpopNonce = (urlResponse as? HTTPURLResponse)?.value(forHTTPHeaderField: "dpop-nonce")
        
-        
       switch response {
       case .success(let tokenType, let accessToken, let refreshToken, let expiresIn, _, let cNonce, _, let identifiers):
         return .success(

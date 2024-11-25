@@ -102,7 +102,7 @@ public struct Poster: PostingType {
         print(allHeaderFields)
         
       if statusCode >= 400 && statusCode < 500 {
-          if let dpopNonce = allHeaderFields?.first { $0.key as? String == "dpop-nonce" }?.value as? String,
+          if let dpopNonce = allHeaderFields?.first(where: { $0.key as? String == "dpop-nonce" })?.value as? String,
           !dpopNonce.isEmpty {
               return .failure(.useDpopNonce(dpopNonce))
           }
@@ -114,8 +114,8 @@ public struct Poster: PostingType {
       
       do {
         let object = try JSONDecoder().decode(Response.self, from: data)
+          print(String(data: data, encoding: .utf8))
         return .success(object)
-        
       } catch {
         if statusCode == 200, let string = String(data: data, encoding: .utf8) {
           return .failure(.cannotParse(string))
