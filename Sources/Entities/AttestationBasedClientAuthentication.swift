@@ -7,9 +7,13 @@
 import Foundation
 import JOSESwift
 
+public protocol ClientAttestationPoPBuilder {
+    func attestationPoPJWT(clientId: String, authServerId: URL, popJwtSpec: ClientAttestationPoPJWTSpec) throws -> ClientAttestationPoPJWT
+}
+
 public final class ClientAttestationPoPBuilderImpl: ClientAttestationPoPBuilder {
     
-    public func attestationPoPJWT(clientId: String, expirationInterval: TimeInterval, authServerId: URL, popJwtSpec: ClientAttestationPoPJWTSpec) throws -> ClientAttestationPoPJWT {
+    public func attestationPoPJWT(clientId: String, authServerId: URL, popJwtSpec: ClientAttestationPoPJWTSpec) throws -> ClientAttestationPoPJWT {
         
         let header = try JWSHeader(parameters: [
             "typ": popJwtSpec.typ,
@@ -18,7 +22,7 @@ public final class ClientAttestationPoPBuilderImpl: ClientAttestationPoPBuilder 
         
         var dictionary: [String: Any] = [
           JWTClaimNames.issuedAt: Int(Date().timeIntervalSince1970.rounded()),
-          JWTClaimNames.expirationTime: Int(Date().addingTimeInterval(expirationInterval).timeIntervalSince1970.rounded()),
+          JWTClaimNames.expirationTime: Int(Date().addingTimeInterval(popJwtSpec.duration).timeIntervalSince1970.rounded()),
           JWTClaimNames.audience: authServerId.absoluteString,
           JWTClaimNames.issuer: clientId,
           JWTClaimNames.jwtId: String.randomBase64URLString(length: 20)

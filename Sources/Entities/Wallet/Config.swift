@@ -33,19 +33,20 @@ public struct OpenId4VCIConfig {
   public let authFlowRedirectionURI: URL
   public let authorizeIssuanceConfig: AuthorizeIssuanceConfig
   public let usePAR: Bool
-  public let attestationJWT: AttestedClient?
+  public let attestedClient: AttestedClient?
 
   public init(
     client: Client,
     authFlowRedirectionURI: URL,
     authorizeIssuanceConfig: AuthorizeIssuanceConfig = .favorScopes,
-    usePAR: Bool = true
+    usePAR: Bool = true,
+    attestedClient: AttestedClient?
   ) {
     self.client = client
     self.authFlowRedirectionURI = authFlowRedirectionURI
     self.authorizeIssuanceConfig = authorizeIssuanceConfig
     self.usePAR = usePAR
-    self.attestationJWT = nil
+    self.attestedClient = attestedClient
   }
     
     public init(
@@ -56,14 +57,14 @@ public struct OpenId4VCIConfig {
         usePAR: Bool = true
     ) {
         self.client = client
-        self.attestationJWT = attestationJWT
+        self.attestedClient = nil
         self.authFlowRedirectionURI = authFlowRedirectionURI
         self.authorizeIssuanceConfig = authorizeIssuanceConfig
         self.usePAR = usePAR
     }
 }
 
-public class AttestedClient {
+public final class AttestedClient {
     let attestationJWT: ClientAttestationJWT
     let popJwtSpec: ClientAttestationPoPJWTSpec
     let id: String

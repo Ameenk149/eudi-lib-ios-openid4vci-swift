@@ -113,6 +113,8 @@ public enum ContentType: String {
   case json = "application/json"
 
   public static let key = "Content-Type"
+    public static let attestationKey = "OAuth-Client-Attestation"
+    public static let attestationPoPKey = "OAuth-Client-Attestation-PoP"
 }
 
 public struct AccessToken: Codable {

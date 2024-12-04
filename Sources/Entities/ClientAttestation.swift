@@ -8,28 +8,33 @@
 import Foundation
 import JOSESwift
 
-typealias ClientAttestation = (ClientAttestationJWT, ClientAttestationPoPJWT)
+public struct ClientAttestation {
+    public let clientAttestationPoPJWTType: ClientAttestationPoPJWTSpec?
+    public let clientAttestationJWT: String?
+}
 
 public struct ClientAttestationJWT {
-    let jwt: String
-    let clientId: ClientId
-    let pubKey: JWK
+    public let jwt: String
+    public let clientId: ClientId
+//    let pubKey: JWK
+    public init(jwt: String, clientId: ClientId) {
+        self.jwt = jwt
+        self.clientId = clientId
+    }
 }
 
 public struct ClientAttestationPoPJWT {
-    let jwt: String
+    public let jwt: String
 }
 
 public struct ClientAttestationPoPJWTSpec {
     let signingAlgorithm: String
     let duration: TimeInterval
     let typ: String
+    let issuer: String
+    let audience: String
+    let nonce: String?
     let jwsSigner: Signer
-}
-
-
-public protocol ClientAttestationPoPBuilder {
-    func attestationPoPJWT(clientId: String, expirationInterval: TimeInterval, authServerId: URL, popJwtSpec: ClientAttestationPoPJWTSpec) throws -> ClientAttestationPoPJWT
 }
 
 //// Extension for SignedJWT validation

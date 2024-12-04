@@ -91,6 +91,7 @@ public actor Issuer: IssuerType {
   private let issuanceRequester: IssuanceRequesterType
   private let deferredIssuanceRequester: IssuanceRequesterType
   private let notifyIssuer: NotifyIssuerType
+  private let clientAttestation: ClientAttestation?
     
   public init(
     authorizationServerMetadata: IdentityAndAccessManagementMetadata,
@@ -102,12 +103,13 @@ public actor Issuer: IssuerType {
     deferredRequesterPoster: PostingType = Poster(),
     notificationPoster: PostingType = Poster(),
     dpopConstructor: DPoPConstructorType? = nil,
-    clientAttestationPoPJWTSpec: ClientAttestationPoPJWTSpec? = nil
+    clientAttestation: ClientAttestation? = nil
   ) throws {
     self.authorizationServerMetadata = authorizationServerMetadata
     self.issuerMetadata = issuerMetadata
     self.config = config
-    
+    self.clientAttestation = clientAttestation
+      
     authorizer = try AuthorizationServerClient(
       parPoster: parPoster,
       tokenPoster: tokenPoster,
@@ -115,7 +117,7 @@ public actor Issuer: IssuerType {
       authorizationServerMetadata: authorizationServerMetadata,
       credentialIssuerIdentifier: issuerMetadata.credentialIssuerIdentifier,
       dpopConstructor: dpopConstructor,
-      clientAttestationPoPJWTSpec: clientAttestationPoPJWTSpec
+      clientAttestation: clientAttestation
     )
     
     issuanceRequester = IssuanceRequester(
@@ -157,7 +159,7 @@ public actor Issuer: IssuerType {
         let resource: String? = issuerMetadata.authorizationServers.map { _ in
           credentialOffer.credentialIssuerIdentifier.url.absoluteString
         }
-
+          
         let result: (
           verifier: PKCEVerifier,
           code: GetAuthorizationCodeURL
@@ -399,6 +401,10 @@ public actor Issuer: IssuerType {
       return .failure(ValidationError.error(reason: ".par is required"))
     }
   }
+    
+//    private func clientAttestationPoPJwt(from clientAttestationPoPJWTSpec: ClientAttestationPoPJWTSpec) throws -> ClientAttestationPoPJWT? {
+//        try clientAttestationPoPBuilder?.attestationPoPJWT(clientId: config.client.id, authServerId: URL(string: "dsa")!, popJwtSpec: clientAttestationPoPJWTSpec)
+//    }
   
   private func accessToken(from request: AuthorizedRequest) -> IssuanceAccessToken {
     switch request {

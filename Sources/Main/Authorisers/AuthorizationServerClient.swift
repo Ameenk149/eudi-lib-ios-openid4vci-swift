@@ -69,7 +69,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
   public let authorizationServerMetadata: IdentityAndAccessManagementMetadata
   public let credentialIssuerIdentifier: CredentialIssuerId
   public let dpopConstructor: DPoPConstructorType?
-  private let clientAttestationPoPJWTSpec: ClientAttestationPoPJWTSpec?
+  public let clientAttestation: ClientAttestation?
     
   static let responseType = "code"
   static let grantAuthorizationCode = "authorization_code"
@@ -83,7 +83,7 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
     authorizationServerMetadata: IdentityAndAccessManagementMetadata,
     credentialIssuerIdentifier: CredentialIssuerId,
     dpopConstructor: DPoPConstructorType? = nil,
-    clientAttestationPoPJWTSpec: ClientAttestationPoPJWTSpec?
+    clientAttestation: ClientAttestation? = nil
   ) throws {
     self.service = service
     self.parPoster = parPoster
@@ -97,8 +97,8 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
       self.clientId = ClientId(config.client.id)
     
     self.dpopConstructor = dpopConstructor
-    self.clientAttestationPoPJWTSpec = clientAttestationPoPJWTSpec
-    
+    self.clientAttestation = clientAttestation
+      
     switch authorizationServerMetadata {
     case .oidc(let data):
       
@@ -219,22 +219,45 @@ public actor AuthorizationServerClient: AuthorizationServerClientType {
       guard let parEndpoint = parEndpoint else {
         throw ValidationError.error(reason: "Missing PAR endpoint")
       }
+        var headers: [String: String] = [:]
+        
         switch authorizationServerMetadata {
         case .oidc(let data):
             if let tokenEndpointAuthMethodsSupported = data.tokenEndpointAuthMethodsSupported,
                tokenEndpointAuthMethodsSupported.contains(where: { $0 == "attest_jwt_client_auth" }) {
                 
             }
-        case .oauth(_):
-            break
+        case .oauth(let data):
+            if let tokenEndpointAuthMethodsSupported = data.tokenEndpointAuthMethodsSupported,
+               tokenEndpointAuthMethodsSupported.contains(where: { $0 == "attest_jwt_client_auth" }) {
+                
+            }
         }
         
-      var clientID = ClientId(config.client.id)
-      let response: PushedAuthorizationRequestResponse = try await service.formPost(
-        poster: parPoster,
-        url: parEndpoint,
-        request: authzRequest
-      )
+        do {
+            if let clientAttestationJWT = clientAttestation?.clientAttestationJWT,
+               let clientAttestationPoPJWTType = clientAttestation?.clientAttestationPoPJWTType,
+               let pop = try dpopConstructor?.jwt(popJWTSpec: clientAttestationPoPJWTType) {
+                headers = [
+                    ContentType.attestationKey: clientAttestationJWT,
+                    ContentType.attestationPoPKey: pop
+                ]
+            }
+        } catch {
+            
+        }
+        
+        let response: PushedAuthorizationRequestResponse = try await service.formPost(
+            poster: parPoster,
+            url: parEndpoint,
+            headers: headers,
+            request: authzRequest)
+        
+//      let response: PushedAuthorizationRequestResponse = try await service.formPost(
+//        poster: parPoster,
+//        url: parEndpoint,
+//        request: authzRequest
+//      )
       
       switch response {
       case .success(let requestURI, _):
